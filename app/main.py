@@ -10,6 +10,7 @@ import logging
 import asyncio
 import random
 import sqlalchemy.exc
+from telegram import BotCommand
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -60,6 +61,15 @@ async def lifespan(app: FastAPI):
     # Запускаем процессор обновлений бота (без этого обработчики /start и т.д. не вызываются)
     await application.initialize()
     await application.start()
+    # Список команд в меню бота (кнопка / слева от поля ввода)
+    await application.bot.set_my_commands([
+        BotCommand("start", "Начать / регистрация"),
+        BotCommand("profile", "Мой профиль"),
+        BotCommand("goal", "Цель по калориям (например: /goal 2000)"),
+        BotCommand("today", "Итог за сегодня"),
+        BotCommand("history", "История за N дней (например: /history 7)"),
+        BotCommand("reminder", "Напоминания (например: /reminder 09:00)"),
+    ])
     logger.info("Bot application started (webhook mode)")
 
     # Start the reminder scheduler
