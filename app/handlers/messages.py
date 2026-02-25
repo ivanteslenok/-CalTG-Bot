@@ -1,190 +1,117 @@
+"""
+Обработчики сообщений: фото и текст для добавления приёмов пищи.
+Определение калорийности через FoodAnalysisService (OpenRouter + USDA fallback).
+"""
+import logging
+from typing import Optional
+
 from telegram import Update
 from telegram.ext import ContextTypes
-from app.services.user_service import UserService
-from app.services.meal_service import MealService
-from app.services.nlp_service import NLPService
-from app.services.usda_service import USDAClient
-from app.schemas.meal import MealLogCreate
+
 from app.database import get_db
-from typing import Optional
-import logging
+from app.schemas.analysis import FoodAnalysisResult
+from app.schemas.meal import MealLogCreate
+from app.services.food_analysis_service import FoodAnalysisService
+from app.services.meal_service import MealService
+from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 
 
-async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle photo messages (food images)"""
+def _format_meal_response(analysis: FoodAnalysisResult, daily_goal: Optional[int], daily_intake: int) -> str:
+    """Формирует текст ответа пользователю после добавления приёма пищи."""
+    lines = [
+        "✅ Приём пищи добавлен!",
+        "",
+        f"🍽️ {analysis.food_name}",
+        f"🔥 Калории: {analysis.calories} ккал",
+    ]
+    if analysis.protein is not None:
+        lines.append(f"🍗 Белки: {analysis.protein} г")
+    if analysis.carbs is not None:
+        lines.append(f"🍞 Углеводы: {analysis.carbs} г")
+    if analysis.fat is not None:
+        lines.append(f"🧀 Жиры: {analysis.fat} г")
+    if analysis.serving_size is not None:
+        lines.append(f"⚖️ Размер порции: {analysis.serving_size} г")
+    if daily_goal is not None:
+        remaining = daily_goal - daily_intake
+        lines.append(f"📊 Осталось сегодня: {remaining} ккал")
+    return "\n".join(lines)
+
+
+async def _save_meal_and_reply(
+    telegram_id: int,
+    analysis: FoodAnalysisResult,
+    loading_msg,
+    photo_url: Optional[str] = None,
+) -> None:
+    """
+    Сохраняет приём пищи в БД, обновляет дневную сумму калорий и редактирует loading_msg.
+    Использует актуальные данные пользователя после update_calorie_intake для корректного «осталось».
+    """
+    async for db in get_db():
+        user = await UserService.get_user_by_telegram_id(db, telegram_id)
+        if not user:
+            await loading_msg.edit_text("Пожалуйста, сначала используйте /start для регистрации.")
+            return
+
+        meal_data = MealLogCreate(
+            user_id=user.id,
+            food_name=analysis.food_name,
+            calories=analysis.calories,
+            protein=analysis.protein,
+            carbs=analysis.carbs,
+            fat=analysis.fat,
+            serving_size=analysis.serving_size,
+            meal_type=analysis.meal_type,
+            photo_url=photo_url,
+        )
+        await MealService.create_meal_log(db, meal_data)
+        updated_user = await UserService.update_calorie_intake(db, telegram_id, analysis.calories)
+        daily_intake = updated_user.daily_calorie_intake if updated_user else user.daily_calorie_intake + analysis.calories
+        daily_goal = (updated_user or user).daily_calorie_goal
+        response_text = _format_meal_response(analysis, daily_goal, daily_intake)
+        await loading_msg.edit_text(response_text)
+        return
+
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка фото: определение калорийности по изображению (OpenRouter vision)."""
     user_info = update.effective_user
     telegram_id = user_info.id
-    
-    # Get the highest resolution photo
-    photo = update.message.photo[-1]  # Last element is the highest resolution
+
+    photo = update.message.photo[-1]
     file = await context.bot.get_file(photo.file_id)
     photo_url = file.file_path
-    
-    # Show loading message
+
     loading_msg = await update.message.reply_text("🔍 Анализирую изображение...")
-    
-    # Analyze the food image
-    nlp_service = NLPService()
-    analysis_result = await nlp_service.analyze_food_image(photo_url)
-    
-    if not analysis_result:
+
+    service = FoodAnalysisService()
+    analysis = await service.analyze_by_image(photo_url)
+
+    if not analysis:
         await loading_msg.edit_text("❌ Не удалось проанализировать изображение. Попробуйте снова.")
         return
-    
-    # Extract food information
-    food_name = analysis_result.get('food_name', 'Неизвестно')
-    calories = analysis_result.get('calories', 0)
-    protein = analysis_result.get('protein')
-    carbs = analysis_result.get('carbs')
-    fat = analysis_result.get('fat')
-    serving_size = analysis_result.get('serving_size')
-    meal_type = analysis_result.get('meal_type', 'snack')
-    
-    # Save to database
-    async for db in get_db():
-        user = await UserService.get_user_by_telegram_id(db, telegram_id)
-        
-        if not user:
-            await loading_msg.edit_text("Пожалуйста, сначала используйте /start для регистрации.")
-            return
-        
-        # Create meal log
-        meal_data = MealLogCreate(
-            user_id=user.id,
-            food_name=food_name,
-            calories=int(calories),
-            protein=protein,
-            carbs=carbs,
-            fat=fat,
-            serving_size=serving_size,
-            meal_type=meal_type,
-            photo_url=photo_url
-        )
-        
-        meal_log = await MealService.create_meal_log(db, meal_data)
-        
-        # Update user's daily calorie intake
-        await UserService.update_calorie_intake(db, telegram_id, int(calories))
-        
-        # Prepare response
-        response_text = f"✅ Приём пищи добавлен!\n\n"
-        response_text += f"🍽️ {food_name}\n"
-        response_text += f"🔥 Калории: {int(calories)} ккал"
-        
-        if protein is not None:
-            response_text += f"\n🍗 Белки: {protein} г"
-        if carbs is not None:
-            response_text += f"\n🍞 Углеводы: {carbs} г"
-        if fat is not None:
-            response_text += f"\n🧀 Жиры: {fat} г"
-        
-        if serving_size is not None:
-            response_text += f"\n⚖️ Размер порции: {serving_size} г"
-        
-        if user.daily_calorie_goal:
-            remaining = user.daily_calorie_goal - user.daily_calorie_intake
-            response_text += f"\n📊 Осталось сегодня: {remaining} ккал"
-        
-        await loading_msg.edit_text(response_text)
+
+    await _save_meal_and_reply(telegram_id, analysis, loading_msg, photo_url=photo_url)
 
 
-async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle text messages (food descriptions)"""
+async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка текста: определение калорийности по описанию (OpenRouter, fallback USDA)."""
     user_info = update.effective_user
     telegram_id = user_info.id
-    message_text = update.message.text
-    
-    # Show loading message
+    message_text = (update.message.text or "").strip()
+
     loading_msg = await update.message.reply_text("🧠 Анализирую описание еды...")
-    
-    # Analyze the food description
-    nlp_service = NLPService()
-    analysis_result = await nlp_service.analyze_food_text(message_text)
-    
-    if not analysis_result:
-        # Fallback to USDA search
-        usda_client = USDAClient()
-        search_results = await usda_client.search_foods(message_text)
-        
-        if search_results:
-            # Take the first result
-            first_result = search_results[0]
-            fdc_id = first_result.get('fdcId')
-            
-            if fdc_id:
-                food_details = await usda_client.get_food_details(fdc_id)
-                if food_details:
-                    nutrition_info = usda_client.parse_nutrition_info(food_details)
-                    
-                    # Use USDA info with basic food name
-                    food_name = first_result.get('description', message_text)
-                    analysis_result = {
-                        'food_name': food_name,
-                        'calories': nutrition_info.get('calories', 0),
-                        'protein': nutrition_info.get('protein'),
-                        'carbs': nutrition_info.get('carbs'),
-                        'fat': nutrition_info.get('fat'),
-                        'serving_size': None,
-                        'meal_type': 'snack'
-                    }
-    
-    if not analysis_result:
-        await loading_msg.edit_text("❌ Не удалось определить информацию о еде. Попробуйте описать блюдо подробнее.")
-        return
-    
-    # Extract food information
-    food_name = analysis_result.get('food_name', message_text)
-    calories = analysis_result.get('calories', 0)
-    protein = analysis_result.get('protein')
-    carbs = analysis_result.get('carbs')
-    fat = analysis_result.get('fat')
-    serving_size = analysis_result.get('serving_size')
-    meal_type = analysis_result.get('meal_type', 'snack')
-    
-    # Save to database
-    async for db in get_db():
-        user = await UserService.get_user_by_telegram_id(db, telegram_id)
-        
-        if not user:
-            await loading_msg.edit_text("Пожалуйста, сначала используйте /start для регистрации.")
-            return
-        
-        # Create meal log
-        meal_data = MealLogCreate(
-            user_id=user.id,
-            food_name=food_name,
-            calories=int(calories),
-            protein=protein,
-            carbs=carbs,
-            fat=fat,
-            serving_size=serving_size,
-            meal_type=meal_type
+
+    service = FoodAnalysisService()
+    analysis = await service.analyze_by_text(message_text)
+
+    if not analysis:
+        await loading_msg.edit_text(
+            "❌ Не удалось определить информацию о еде. Попробуйте описать блюдо подробнее."
         )
-        
-        meal_log = await MealService.create_meal_log(db, meal_data)
-        
-        # Update user's daily calorie intake
-        await UserService.update_calorie_intake(db, telegram_id, int(calories))
-        
-        # Prepare response
-        response_text = f"✅ Приём пищи добавлен!\n\n"
-        response_text += f"🍽️ {food_name}\n"
-        response_text += f"🔥 Калории: {int(calories)} ккал"
-        
-        if protein is not None:
-            response_text += f"\n🍗 Белки: {protein} г"
-        if carbs is not None:
-            response_text += f"\n🍞 Углеводы: {carbs} г"
-        if fat is not None:
-            response_text += f"\n🧀 Жиры: {fat} г"
-        
-        if serving_size is not None:
-            response_text += f"\n⚖️ Размер порции: {serving_size} г"
-        
-        if user.daily_calorie_goal:
-            remaining = user.daily_calorie_goal - user.daily_calorie_intake
-            response_text += f"\n📊 Осталось сегодня: {remaining} ккал"
-        
-        await loading_msg.edit_text(response_text)
+        return
+
+    await _save_meal_and_reply(telegram_id, analysis, loading_msg)

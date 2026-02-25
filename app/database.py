@@ -2,14 +2,20 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.pool import QueuePool
-import os
 
-# Render даёт postgres://, для async нужен postgresql+asyncpg://
-_raw_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:pass@localhost/db")
-if _raw_url.startswith("postgres://"):
-    DATABASE_URL = _raw_url.replace("postgres://", "postgresql+asyncpg://", 1)
-else:
-    DATABASE_URL = _raw_url
+from app.config import Config
+
+
+def _normalize_database_url(url: str) -> str:
+    """Render даёт postgres://, для async нужен postgresql+asyncpg://."""
+    if not url or not url.strip():
+        return "sqlite+aiosqlite:///./calories.db"
+    if url.strip().startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return url
+
+
+DATABASE_URL = _normalize_database_url(Config.DATABASE_URL or "")
 
 engine = create_async_engine(
     DATABASE_URL,
