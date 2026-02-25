@@ -68,40 +68,48 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def goal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /goal command to set daily calorie goal"""
+    """Handle /goal command: без аргумента — показать текущую цель, с числом — установить."""
     user_info = update.effective_user
     telegram_id = user_info.id
-    
-    if not context.args:
-        await update.message.reply_text("Пожалуйста, укажите целевое количество калорий. Пример: /goal 2000")
-        return
-    
-    try:
-        calorie_goal = int(context.args[0])
-        if calorie_goal <= 0:
-            await update.message.reply_text("Пожалуйста, укажите положительное число калорий.")
-            return
-    except ValueError:
-        await update.message.reply_text("Пожалуйста, укажите корректное число калорий. Пример: /goal 2000")
-        return
-    
+
     async for db in get_db():
         user = await UserService.get_user_by_telegram_id(db, telegram_id)
-        
         if not user:
             await update.message.reply_text("Пожалуйста, сначала используйте /start для регистрации.")
             return
-        
-        # Update user's calorie goal
+
+        # Чтение: /goal без аргументов — показать текущую цель
+        if not context.args:
+            if user.daily_calorie_goal:
+                remaining = user.daily_calorie_goal - user.daily_calorie_intake
+                await update.message.reply_text(
+                    f"🎯 Текущая цель: {user.daily_calorie_goal} ккал/день\n"
+                    f"Сегодня съедено: {user.daily_calorie_intake} ккал\n"
+                    f"Осталось: {remaining} ккал"
+                )
+            else:
+                await update.message.reply_text(
+                    "Цель по калориям не установлена.\nУкажите число, например: /goal 2000"
+                )
+            return
+
+        # Запись: /goal 2000
+        try:
+            calorie_goal = int(context.args[0])
+            if calorie_goal <= 0:
+                await update.message.reply_text("Пожалуйста, укажите положительное число калорий.")
+                return
+        except ValueError:
+            await update.message.reply_text("Пожалуйста, укажите корректное число. Пример: /goal 2000")
+            return
+
         user_update = UserUpdate(daily_calorie_goal=calorie_goal)
         updated_user = await UserService.update_user(db, telegram_id, user_update)
-        
-        # Calculate remaining calories
         remaining_calories = calorie_goal - updated_user.daily_calorie_intake
         await update.message.reply_text(
-            f"Ваша дневная цель по калориям установлена на {calorie_goal} ккал.\n"
-            f"Осталось: {remaining_calories} ккал"
+            f"Ваша дневная цель установлена на {calorie_goal} ккал.\nОсталось сегодня: {remaining_calories} ккал"
         )
+        return
 
 
 async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
