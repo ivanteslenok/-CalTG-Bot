@@ -142,9 +142,13 @@ async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Add goal information
         if user.daily_calorie_goal:
-            remaining = user.daily_calorie_goal - total_calories
             summary += f"\n📊 Цель: {user.daily_calorie_goal} ккал\n"
-            summary += f"📊 Осталось: {remaining} ккал"
+            if total_calories > user.daily_calorie_goal:
+                over = total_calories - user.daily_calorie_goal
+                summary += f"📊 Перебор: {over} ккал"
+            else:
+                remaining = user.daily_calorie_goal - total_calories
+                summary += f"📊 Осталось: {remaining} ккал"
         else:
             summary += f"\n📊 Цель по калориям не установлена. Используйте /goal для установки цели."
         
