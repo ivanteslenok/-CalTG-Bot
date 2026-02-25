@@ -4,8 +4,12 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.pool import QueuePool
 import os
 
-# Create the async engine
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:pass@localhost/db")
+# Render даёт postgres://, для async нужен postgresql+asyncpg://
+_raw_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:pass@localhost/db")
+if _raw_url.startswith("postgres://"):
+    DATABASE_URL = _raw_url.replace("postgres://", "postgresql+asyncpg://", 1)
+else:
+    DATABASE_URL = _raw_url
 
 engine = create_async_engine(
     DATABASE_URL,
