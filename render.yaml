@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: caltg
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHONPATH
+        value: .
+      - key: PORT
+        value: 10000
+databases:
+  - name: caltg-db
+    databaseName: caltg
+    user: caltg_user

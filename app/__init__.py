@@ -1,0 +1,1 @@
+"""CalTG - Telegram Bot for Calorie Counting"""
