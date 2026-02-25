@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException
+from telegram import Update
 from app.bot import application
 import logging
 
@@ -9,12 +10,10 @@ logger = logging.getLogger(__name__)
 async def telegram_webhook(request: Request):
     """Handle incoming Telegram webhook updates"""
     try:
-        # Get the update data from the request
         update_data = await request.json()
-        
-        # Process the update with the bot application
-        await application.update_queue.put(update_data)
-        
+        # PTB ожидает объект Update, не сырой dict
+        update = Update.de_json(data=update_data, bot=application.bot)
+        await application.update_queue.put(update)
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error processing webhook: {e}")

@@ -9,7 +9,9 @@ class Config:
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "gpt-4.2-mini")
     USDA_API_KEY = os.getenv("USDA_API_KEY")
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://your-app-name.onrender.com/webhook")
+    _webhook_url_raw = os.getenv("WEBHOOK_URL", "https://your-app-name.onrender.com/webhook")
+    # Всегда с путём /webhook, иначе Telegram шлёт POST на / и получает 405
+    WEBHOOK_URL = _webhook_url_raw.rstrip("/") + "/webhook" if _webhook_url_raw and not _webhook_url_raw.rstrip("/").endswith("/webhook") else (_webhook_url_raw or "")
 
     @classmethod
     def validate(cls) -> None:

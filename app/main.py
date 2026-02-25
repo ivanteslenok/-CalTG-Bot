@@ -8,6 +8,7 @@ from app.bot import application
 from app.utils.reminders import schedule_reminders
 import logging
 import asyncio
+import random
 import sqlalchemy.exc
 
 # Configure logging
@@ -35,16 +36,31 @@ async def lifespan(app: FastAPI):
         else:
             raise
 
-    # Регистрируем webhook в Telegram (чтобы обновления шли на наш URL)
+    # Регистрируем webhook в Telegram. Задержка чтобы 4 воркера не дергали API одновременно (429).
     webhook_url = Config.WEBHOOK_URL
     if webhook_url and "your-app-name" not in webhook_url:
-        try:
-            await application.bot.set_webhook(url=webhook_url)
-            logger.info("Telegram webhook set to %s", webhook_url)
-        except Exception as e:
-            logger.warning("Failed to set Telegram webhook: %s", e)
+        await asyncio.sleep(random.uniform(0, 4))
+        for attempt in range(3):
+            try:
+                await application.bot.set_webhook(url=webhook_url)
+                logger.info("Telegram webhook set to %s", webhook_url)
+                break
+            except Exception as e:
+                err_str = str(e).lower()
+                if "429" in err_str or "retry" in err_str or "flood" in err_str:
+                    wait = 2 * (attempt + 1)
+                    logger.warning("Telegram rate limit, retry in %ss: %s", wait, e)
+                    await asyncio.sleep(wait)
+                else:
+                    logger.warning("Failed to set Telegram webhook: %s", e)
+                    break
     else:
         logger.warning("WEBHOOK_URL not set or placeholder - set it in Render Environment to your URL, e.g. https://caltg-bot.onrender.com/webhook")
+
+    # Запускаем процессор обновлений бота (без этого обработчики /start и т.д. не вызываются)
+    await application.initialize()
+    await application.start()
+    logger.info("Bot application started (webhook mode)")
 
     # Start the reminder scheduler
     reminder_scheduler.start_scheduler()
@@ -54,7 +70,8 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down CalTG application...")
-    
+    await application.stop()
+    await application.shutdown()
     # Stop the reminder scheduler
     reminder_scheduler.stop_scheduler()
     logger.info("Reminder scheduler stopped")
