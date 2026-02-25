@@ -198,4 +198,6 @@ def build_profile_conversation_handler():
             ACTIVITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_activity)],
         },
         fallbacks=[CommandHandler("cancel", cancel_setprofile)],
+        name="profile_fill",
+        persistent=True,
     )

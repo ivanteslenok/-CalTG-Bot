@@ -1,3 +1,5 @@
+import os
+
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -5,6 +7,7 @@ from telegram.ext import (
     filters,
     CallbackQueryHandler,
     ContextTypes,
+    PicklePersistence,
 )
 from app.config import Config
 from app.handlers.commands import (
@@ -26,13 +29,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create the bot application (concurrent_updates=False нужен для ConversationHandler)
-application = (
+# Состояние диалога профиля: опционально сохраняем на диск (задайте PERSISTENCE_PATH, например /tmp/calTG_state)
+_builder = (
     ApplicationBuilder()
     .token(Config.TELEGRAM_BOT_TOKEN)
     .concurrent_updates(False)
-    .build()
 )
+_path = os.environ.get("PERSISTENCE_PATH")
+if _path:
+    try:
+        _builder = _builder.persistence(PicklePersistence(filepath=_path))
+        logger.info("Using persistence path: %s", _path)
+    except Exception as e:
+        logger.warning("Persistence disabled: %s", e)
+application = _builder.build()
 
 # Пошаговое заполнение профиля — добавляем первым, чтобы перехватывать ответы в диалоге
 application.add_handler(build_profile_conversation_handler())

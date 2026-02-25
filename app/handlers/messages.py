@@ -87,8 +87,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
         if not is_profile_complete(user):
             await update.message.reply_text(
-                "Сначала заполните профиль (пол, возраст, вес, рост, активность): /setprofile\n"
-                "Или отмените текущий ввод: /cancel"
+                "Сначала заполните профиль (пол, возраст, вес, рост, активность): /setprofile"
             )
             return
         break
@@ -118,10 +117,17 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text("Пожалуйста, сначала используйте /start для регистрации.")
             return
         if not is_profile_complete(user):
-            await update.message.reply_text(
-                "Сначала заполните профиль (пол, возраст, вес, рост, активность): /setprofile\n"
-                "Или отмените текущий ввод: /cancel"
-            )
+            text_preview = (update.message.text or "").strip()
+            # Короткий ввод может быть ответом в диалоге профиля или после /cancel — одна подсказка
+            if len(text_preview) <= 25 or text_preview.isdigit():
+                await update.message.reply_text(
+                    "Заполните профиль по шагам: /setprofile (пол, возраст, вес, рост, активность). "
+                    "После заполнения можно присылать описание блюд и фото."
+                )
+            else:
+                await update.message.reply_text(
+                    "Сначала заполните профиль (пол, возраст, вес, рост, активность): /setprofile"
+                )
             return
         break
 
