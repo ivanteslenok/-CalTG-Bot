@@ -77,15 +77,12 @@ class NLPService:
             return None
 
         prompt = (
-            "Analyze this food image and provide the following information in JSON format:\n"
-            "- food_name: Name of the food/dish\n"
-            "- calories: Estimated total calories (number)\n"
-            "- protein: Estimated protein in grams (number, optional)\n"
-            "- carbs: Estimated carbohydrates in grams (number, optional)\n"
-            "- fat: Estimated fat in grams (number, optional)\n"
-            "- serving_size: Estimated serving size in grams (number, optional)\n"
-            "- meal_type: One of breakfast, lunch, dinner, snack\n"
-            "Respond only with the JSON object, no other text."
+            "You are a nutrition assistant. Analyze the food in this image and reply with exactly one JSON object (no array, no markdown, no extra text).\n\n"
+            'Required keys: "food_name" (string), "calories" (integer, total kcal).\n'
+            'Optional keys: "protein", "carbs", "fat", "serving_size" (numbers, grams), "meal_type" (one of: breakfast, lunch, dinner, snack).\n\n'
+            'Use double quotes for all keys and string values. Example format:\n'
+            '{"food_name": "Caesar salad", "calories": 350, "protein": 12, "carbs": 28, "fat": 22, "serving_size": 300, "meal_type": "lunch"}\n\n'
+            "Output only this single JSON object, nothing else."
         )
 
         payload = {
@@ -153,16 +150,13 @@ class NLPService:
             return None
 
         prompt = (
-            f"Analyze this food description: '{description}'\n"
-            "Provide the following in JSON format:\n"
-            "- food_name: Name of the food/dish\n"
-            "- calories: Estimated total calories (number)\n"
-            "- protein: Protein in grams (number, optional)\n"
-            "- carbs: Carbohydrates in grams (number, optional)\n"
-            "- fat: Fat in grams (number, optional)\n"
-            "- serving_size: Serving size in grams (number, optional)\n"
-            "- meal_type: One of breakfast, lunch, dinner, snack\n"
-            "Respond only with the JSON object, no other text."
+            "You are a nutrition assistant. From the food description below, estimate nutrition and reply with exactly one JSON object (no array, no markdown, no extra text).\n\n"
+            f'Food description: "{description}"\n\n'
+            'Required keys: "food_name" (string), "calories" (integer, total kcal).\n'
+            'Optional keys: "protein", "carbs", "fat", "serving_size" (numbers, grams), "meal_type" (one of: breakfast, lunch, dinner, snack).\n\n'
+            'Use double quotes for all keys and string values. Example:\n'
+            '{"food_name": "Oatmeal with banana", "calories": 250, "protein": 8, "carbs": 45, "fat": 5, "serving_size": 350, "meal_type": "breakfast"}\n\n'
+            "Output only this single JSON object, nothing else."
         )
 
         payload = {
