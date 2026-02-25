@@ -184,7 +184,10 @@ async def cancel_setprofile(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     return ConversationHandler.END
 
 
-def build_profile_conversation_handler():
+def build_profile_conversation_handler(*, persistent: bool = False):
+    """Создаёт ConversationHandler для заполнения профиля.
+    persistent=True допустим только если у Application настроена persistence (например PERSISTENCE_PATH).
+    """
     return ConversationHandler(
         entry_points=[
             CommandHandler("start", start_from_start),
@@ -199,5 +202,5 @@ def build_profile_conversation_handler():
         },
         fallbacks=[CommandHandler("cancel", cancel_setprofile)],
         name="profile_fill",
-        persistent=True,
+        persistent=persistent,
     )

@@ -45,7 +45,8 @@ if _path:
 application = _builder.build()
 
 # Пошаговое заполнение профиля — добавляем первым, чтобы перехватывать ответы в диалоге
-application.add_handler(build_profile_conversation_handler())
+# persistent=True только если задан PERSISTENCE_PATH, иначе ValueError при старте
+application.add_handler(build_profile_conversation_handler(persistent=bool(_path)))
 
 # /start обрабатывается в ConversationHandler (сразу ведёт в заполнение профиля для новых)
 application.add_handler(CommandHandler("profile", profile_command))
