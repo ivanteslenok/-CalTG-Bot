@@ -36,9 +36,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             new_user = await UserService.create_user(db, user_create)
             await update.message.reply_text(
-                f"Привет, {user_info.first_name}! Добро пожаловать в CalTG - вашего помощника в подсчёте калорий.\n\n"
-                "Для начала использования бота, пожалуйста, укажите ваш пол, возраст, вес и рост, чтобы я мог рассчитать "
-                "вашу суточную норму калорий. Используйте команду /profile для обновления этих данных."
+                f"Привет, {user_info.first_name}! Добро пожаловать в CalTG — помощник в подсчёте калорий.\n\n"
+                "Чтобы рассчитать вашу норму калорий, заполните профиль: /setprofile"
             )
 
 

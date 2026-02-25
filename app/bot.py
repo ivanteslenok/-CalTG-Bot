@@ -1,22 +1,22 @@
 from telegram.ext import (
-    ApplicationBuilder, 
-    CommandHandler, 
-    MessageHandler, 
-    filters, 
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    filters,
     CallbackQueryHandler,
-    ContextTypes
+    ContextTypes,
 )
 from app.config import Config
 from app.handlers.commands import (
-    start_command, 
-    profile_command, 
-    goal_command, 
-    today_command, 
-    history_command, 
-    reminder_command
+    profile_command,
+    goal_command,
+    today_command,
+    history_command,
+    reminder_command,
 )
 from app.handlers.messages import handle_photo, handle_text_message
 from app.handlers.callbacks import handle_callback_query
+from app.handlers.profile_conversation import build_profile_conversation_handler
 import logging
 
 # Configure logging
@@ -26,11 +26,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create the bot application
-application = ApplicationBuilder().token(Config.TELEGRAM_BOT_TOKEN).build()
+# Create the bot application (concurrent_updates=False нужен для ConversationHandler)
+application = (
+    ApplicationBuilder()
+    .token(Config.TELEGRAM_BOT_TOKEN)
+    .concurrent_updates(False)
+    .build()
+)
 
-# Add command handlers
-application.add_handler(CommandHandler("start", start_command))
+# Пошаговое заполнение профиля — добавляем первым, чтобы перехватывать ответы в диалоге
+application.add_handler(build_profile_conversation_handler())
+
+# /start обрабатывается в ConversationHandler (сразу ведёт в заполнение профиля для новых)
 application.add_handler(CommandHandler("profile", profile_command))
 application.add_handler(CommandHandler("goal", goal_command))
 application.add_handler(CommandHandler("today", today_command))

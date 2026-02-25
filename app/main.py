@@ -64,6 +64,7 @@ async def lifespan(app: FastAPI):
     # Список команд в меню бота (кнопка / слева от поля ввода)
     await application.bot.set_my_commands([
         BotCommand("start", "Начать / регистрация"),
+        BotCommand("setprofile", "Заполнить профиль (пол, возраст, вес, рост)"),
         BotCommand("profile", "Мой профиль"),
         BotCommand("goal", "Цель по калориям (например: /goal 2000)"),
         BotCommand("today", "Итог за сегодня"),
