@@ -8,6 +8,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def is_profile_complete(user: Optional[User]) -> bool:
+    """Профиль считается заполненным, если указаны пол, возраст, вес, рост и активность."""
+    if not user:
+        return False
+    return bool(
+        user.gender and str(user.gender).strip()
+        and user.age is not None
+        and user.weight is not None
+        and user.height is not None
+        and user.activity_level and str(user.activity_level).strip()
+    )
+
+
 class UserService:
     @staticmethod
     async def get_user_by_telegram_id(db: AsyncSession, telegram_id: int) -> Optional[User]:

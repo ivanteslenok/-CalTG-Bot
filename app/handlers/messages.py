@@ -13,7 +13,7 @@ from app.schemas.analysis import FoodAnalysisResult
 from app.schemas.meal import MealLogCreate
 from app.services.food_analysis_service import FoodAnalysisService
 from app.services.meal_service import MealService
-from app.services.user_service import UserService
+from app.services.user_service import UserService, is_profile_complete
 
 logger = logging.getLogger(__name__)
 
@@ -78,13 +78,24 @@ async def _save_meal_and_reply(
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка фото: определение калорийности по изображению (OpenRouter vision)."""
-    user_info = update.effective_user
-    telegram_id = user_info.id
+    telegram_id = update.effective_user.id
+
+    async for db in get_db():
+        user = await UserService.get_user_by_telegram_id(db, telegram_id)
+        if not user:
+            await update.message.reply_text("Пожалуйста, сначала используйте /start для регистрации.")
+            return
+        if not is_profile_complete(user):
+            await update.message.reply_text(
+                "Сначала заполните профиль (пол, возраст, вес, рост, активность): /setprofile\n"
+                "Или отмените текущий ввод: /cancel"
+            )
+            return
+        break
 
     photo = update.message.photo[-1]
     file = await context.bot.get_file(photo.file_id)
     photo_url = file.file_path
-
     loading_msg = await update.message.reply_text("🔍 Анализирую изображение...")
 
     service = FoodAnalysisService()
@@ -99,10 +110,22 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка текста: определение калорийности по описанию (OpenRouter, fallback USDA)."""
-    user_info = update.effective_user
-    telegram_id = user_info.id
-    message_text = (update.message.text or "").strip().lower()
+    telegram_id = update.effective_user.id
 
+    async for db in get_db():
+        user = await UserService.get_user_by_telegram_id(db, telegram_id)
+        if not user:
+            await update.message.reply_text("Пожалуйста, сначала используйте /start для регистрации.")
+            return
+        if not is_profile_complete(user):
+            await update.message.reply_text(
+                "Сначала заполните профиль (пол, возраст, вес, рост, активность): /setprofile\n"
+                "Или отмените текущий ввод: /cancel"
+            )
+            return
+        break
+
+    message_text = (update.message.text or "").strip().lower()
     loading_msg = await update.message.reply_text("🧠 Анализирую описание еды...")
 
     service = FoodAnalysisService()
