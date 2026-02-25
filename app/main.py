@@ -8,6 +8,7 @@ from app.bot import application
 from app.utils.reminders import schedule_reminders
 import logging
 import asyncio
+import sqlalchemy.exc
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,11 +24,28 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up CalTG application...")
     Config.validate()
-    # Create database tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created")
-    
+    # Create database tables (игнорируем DuplicateTableError при нескольких воркерах или повторном деплое)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created")
+    except sqlalchemy.exc.ProgrammingError as e:
+        if "already exists" in str(e).lower():
+            logger.info("Database tables already exist, skipping create_all")
+        else:
+            raise
+
+    # Регистрируем webhook в Telegram (чтобы обновления шли на наш URL)
+    webhook_url = Config.WEBHOOK_URL
+    if webhook_url and "your-app-name" not in webhook_url:
+        try:
+            await application.bot.set_webhook(url=webhook_url)
+            logger.info("Telegram webhook set to %s", webhook_url)
+        except Exception as e:
+            logger.warning("Failed to set Telegram webhook: %s", e)
+    else:
+        logger.warning("WEBHOOK_URL not set or placeholder - set it in Render Environment to your URL, e.g. https://caltg-bot.onrender.com/webhook")
+
     # Start the reminder scheduler
     reminder_scheduler.start_scheduler()
     logger.info("Reminder scheduler started")
