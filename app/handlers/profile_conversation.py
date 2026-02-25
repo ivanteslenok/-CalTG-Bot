@@ -88,7 +88,7 @@ async def receive_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def receive_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     try:
-        age = int((update.message.text or "").strip())
+        age = int((update.message.text or "").strip().lower())
         if age < 10 or age > 120:
             await update.message.reply_text("Укажите возраст от 10 до 120 лет.")
             return AGE
@@ -102,7 +102,7 @@ async def receive_age(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 async def receive_weight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     try:
-        weight = float((update.message.text or "").strip().replace(",", "."))
+        weight = float((update.message.text or "").strip().lower().replace(",", "."))
         if weight < 30 or weight > 300:
             await update.message.reply_text("Укажите вес от 30 до 300 кг.")
             return WEIGHT
@@ -116,7 +116,7 @@ async def receive_weight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def receive_height(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     try:
-        height = int((update.message.text or "").strip())
+        height = int((update.message.text or "").strip().lower())
         if height < 100 or height > 250:
             await update.message.reply_text("Укажите рост от 100 до 250 см.")
             return HEIGHT

@@ -101,7 +101,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Обработка текста: определение калорийности по описанию (OpenRouter, fallback USDA)."""
     user_info = update.effective_user
     telegram_id = user_info.id
-    message_text = (update.message.text or "").strip()
+    message_text = (update.message.text or "").strip().lower()
 
     loading_msg = await update.message.reply_text("🧠 Анализирую описание еды...")
 

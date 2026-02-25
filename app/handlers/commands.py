@@ -95,7 +95,7 @@ async def goal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Запись: /goal 2000
         try:
-            calorie_goal = int(context.args[0])
+            calorie_goal = int((context.args[0] or "").strip().lower())
             if calorie_goal <= 0:
                 await update.message.reply_text("Пожалуйста, укажите положительное число калорий.")
                 return
@@ -164,7 +164,7 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     days = 7
     if context.args:
         try:
-            days = int(context.args[0])
+            days = int((context.args[0] or "").strip().lower())
             if days <= 0 or days > 30:
                 await update.message.reply_text("Пожалуйста, укажите количество дней от 1 до 30.")
                 return
@@ -218,7 +218,7 @@ async def reminder_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Пожалуйста, укажите время для напоминаний в формате ЧЧ:ММ. Пример: /reminder 09:00")
         return
     
-    time_str = context.args[0]
+    time_str = (context.args[0] or "").strip().lower()
     # Basic validation for time format
     if len(time_str) != 5 or time_str[2] != ':' or not time_str.replace(':', '').isdigit():
         await update.message.reply_text("Пожалуйста, укажите время в формате ЧЧ:ММ. Пример: /reminder 09:00")
