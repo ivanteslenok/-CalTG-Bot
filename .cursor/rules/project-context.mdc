@@ -1,0 +1,16 @@
+---
+description: Контекст проекта CalTG — бот для подсчёта калорий
+alwaysApply: true
+---
+
+# CalTG — контекст проекта
+
+**Что это:** Telegram-бот для подсчёта калорий с ИИ-распознаванием еды (фото/текст) и данными USDA по питательности.
+
+**Стек:** Python 3.11+, python-telegram-bot v20, FastAPI, PostgreSQL, SQLAlchemy 2.0 (asyncpg), Alembic, OpenRouter API, USDA FoodData Central API.
+
+**Структура:** `app/` — handlers, services (user, meal, nlp, usda), models, db, api (webhook). Конфиг и точка входа в корне.
+
+**Спецификации и развёртывание:** см. `PLAN.md` (план и компоненты), `DEPLOY.md` (деплой), `README.md` (настройка и запуск). При вопросах по архитектуре или деплою обращаться к этим файлам.
+
+**Стиль:** async/await, аннотации типов, корректная обработка ошибок при вызовах API.
