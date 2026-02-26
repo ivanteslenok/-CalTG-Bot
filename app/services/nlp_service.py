@@ -79,6 +79,12 @@ class NLPService:
             logger.warning("analyze_food_image: missing api_key or invalid image_url")
             return None
 
+        logger.info(
+            "CALORIES_FLOW: OpenRouter image request. model=%s, image_url=%s",
+            self.model,
+            image_url,
+        )
+
         prompt = (
             "You are a nutrition assistant. Analyze the food in this image and reply with exactly one JSON object (no array, no markdown, no extra text).\n\n"
             'Required keys:\n'
@@ -131,10 +137,17 @@ class NLPService:
                     if not content:
                         logger.warning("OpenRouter returned empty content")
                         return None
+                    logger.debug("CALORIES_FLOW: OpenRouter raw content (image): %s", content)
                     parsed = _parse_json_content(content)
                     if not _validate_analysis_dict(parsed):
-                        logger.warning("OpenRouter response missing required fields (food_name, calories)")
+                        logger.warning(
+                            "OpenRouter response for image missing required fields (food_name, calories)"
+                        )
                         return None
+                    logger.info(
+                        "CALORIES_FLOW: OpenRouter parsed response (image): %s",
+                        json.dumps(parsed, ensure_ascii=False, indent=2),
+                    )
                     return parsed
         except aiohttp.ClientError as e:
             logger.error("OpenRouter request failed: %s", e)
@@ -156,6 +169,12 @@ class NLPService:
         description = (food_description or "").strip()
         if not description:
             return None
+
+        logger.info(
+            "CALORIES_FLOW: OpenRouter text request. model=%s, description_preview=%r",
+            self.model,
+            description[:120],
+        )
 
         prompt = (
             "You are a nutrition assistant. From the food description below, estimate nutrition and reply with exactly one JSON object (no array, no markdown, no extra text).\n\n"
@@ -202,10 +221,17 @@ class NLPService:
                     if not content:
                         logger.warning("OpenRouter returned empty content")
                         return None
+                    logger.debug("CALORIES_FLOW: OpenRouter raw content (text): %s", content)
                     parsed = _parse_json_content(content)
                     if not _validate_analysis_dict(parsed):
-                        logger.warning("OpenRouter response missing required fields (food_name, calories)")
+                        logger.warning(
+                            "OpenRouter response for text missing required fields (food_name, calories)"
+                        )
                         return None
+                    logger.info(
+                        "CALORIES_FLOW: OpenRouter parsed response (text): %s",
+                        json.dumps(parsed, ensure_ascii=False, indent=2),
+                    )
                     return parsed
         except aiohttp.ClientError as e:
             logger.error("OpenRouter request failed: %s", e)

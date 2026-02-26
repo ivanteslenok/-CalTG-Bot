@@ -69,15 +69,25 @@ class USDAClient:
                 async with session.get(url, params=params, headers=self._headers) as response:
                     if response.status != 200:
                         body = await response.text()
-                        logger.error("USDA API search error: status=%s body=%s", response.status, body[:300])
+                        logger.error(
+                            "CALORIES_FLOW: USDA search error: status=%s body=%s",
+                            response.status,
+                            body[:300],
+                        )
                         return []
                     data = await response.json()
-                    return data.get("foods") or []
+                    foods = data.get("foods") or []
+                    logger.debug(
+                        "CALORIES_FLOW: USDA search results for query=%r, count=%d",
+                        query,
+                        len(foods),
+                    )
+                    return foods
         except aiohttp.ClientError as e:
-            logger.error("USDA search request failed: %s", e)
+            logger.error("CALORIES_FLOW: USDA search request failed: %s", e)
             return []
         except Exception as e:
-            logger.exception("Error searching USDA: %s", e)
+            logger.exception("CALORIES_FLOW: Error searching USDA: %s", e)
             return []
 
     async def get_food_details(self, fdc_id: int) -> Optional[Dict[str, Any]]:
@@ -91,14 +101,25 @@ class USDAClient:
                 async with session.get(url, params=params, headers=self._headers) as response:
                     if response.status != 200:
                         body = await response.text()
-                        logger.error("USDA API food details error: status=%s body=%s", response.status, body[:300])
+                        logger.error(
+                            "CALORIES_FLOW: USDA food details error: fdc_id=%s status=%s body=%s",
+                            fdc_id,
+                            response.status,
+                            body[:300],
+                        )
                         return None
-                    return await response.json()
+                    details = await response.json()
+                    logger.debug(
+                        "CALORIES_FLOW: USDA food details loaded for fdc_id=%s (has keys=%s)",
+                        fdc_id,
+                        list(details.keys()),
+                    )
+                    return details
         except aiohttp.ClientError as e:
-            logger.error("USDA get_food_details failed: %s", e)
+            logger.error("CALORIES_FLOW: USDA get_food_details failed: %s", e)
             return None
         except Exception as e:
-            logger.exception("Error getting USDA food details: %s", e)
+            logger.exception("CALORIES_FLOW: Error getting USDA food details: %s", e)
             return None
 
     def parse_nutrition_info(self, food_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -177,19 +198,36 @@ class USDAClient:
         if not names:
             return None
 
+        logger.info("CALORIES_FLOW: USDA search_with_fallback names=%s", names)
+
         async def search_one(query: str) -> List[Dict[str, Any]]:
             return await self.search_foods(query, page_size=5)
 
         results: List[List[Dict[str, Any]]] = await asyncio.gather(
             *[search_one(name) for name in names]
         )
-        for food_list in results:
+        for name, food_list in zip(names, results):
             if not food_list:
+                logger.info(
+                    "CALORIES_FLOW: USDA search_with_fallback — нет результатов для %r", name
+                )
                 continue
             first = food_list[0]
             fdc_id = first.get("fdcId")
+            desc = first.get("description")
             if fdc_id is None:
+                logger.info(
+                    "CALORIES_FLOW: USDA search_with_fallback — первый результат без fdcId для %r (%r)",
+                    name,
+                    desc,
+                )
                 continue
+            logger.info(
+                "CALORIES_FLOW: USDA search_with_fallback — кандидат для %r: fdc_id=%s, description=%r",
+                name,
+                fdc_id,
+                desc,
+            )
             details = await self.get_food_details(int(fdc_id))
             if not details:
                 continue
@@ -197,7 +235,20 @@ class USDAClient:
             if nutrition.get("calories", 0) > 0 or any(
                 nutrition.get(k) for k in ("protein", "carbs", "fat")
             ):
+                logger.info(
+                    "CALORIES_FLOW: USDA search_with_fallback — успешный матч для %r: calories=%s, "
+                    "protein=%s, carbs=%s, fat=%s",
+                    name,
+                    nutrition.get("calories"),
+                    nutrition.get("protein"),
+                    nutrition.get("carbs"),
+                    nutrition.get("fat"),
+                )
                 return nutrition
+        logger.warning(
+            "CALORIES_FLOW: USDA search_with_fallback — ни один вариант не дал валидных нутриентов. names=%s",
+            names,
+        )
         return None
 
     async def analyze_food_text(self, query: str) -> Optional[Dict[str, Any]]:
