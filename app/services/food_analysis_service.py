@@ -106,7 +106,13 @@ class FoodAnalysisService:
         logger.debug("CALORIES_FLOW: ингредиенты от OpenRouter:\n%s", _pretty(ingredients))
 
         nutrients_per_ingredient = await asyncio.gather(
-            *[self._usda.search_with_fallback(ing["search_names_en"]) for ing in ingredients]
+            *[
+                self._usda.search_with_fallback(
+                    ing["search_names_en"],
+                    expected_weight_grams=ing["weight_grams"],
+                )
+                for ing in ingredients
+            ]
         )
         if any(n is None for n in nutrients_per_ingredient):
             failed_indexes = [i for i, n in enumerate(nutrients_per_ingredient) if n is None]
@@ -144,14 +150,36 @@ class FoodAnalysisService:
         except (TypeError, ValueError):
             serving_size = None
 
+        openrouter_cal = None
+        try:
+            oc = raw.get("calories")
+            if oc is not None:
+                openrouter_cal = int(float(oc))
+        except (TypeError, ValueError):
+            pass
+
+        if openrouter_cal is not None and openrouter_cal > 0:
+            ratio = total_calories / openrouter_cal
+            if ratio > 2.5 or ratio < 0.4:
+                logger.warning(
+                    "CALORIES_FLOW: итог USDA отклоняется от оценки OpenRouter: USDA=%d, OpenRouter=%d, "
+                    "ratio=%.2f — используем fallback OpenRouter",
+                    total_calories,
+                    openrouter_cal,
+                    ratio,
+                )
+                return None
+
         logger.info(
-            "CALORIES_FLOW: итог по USDA: блюдо=%r, calories=%d, protein=%.2f, carbs=%.2f, fat=%.2f, serving_size=%s",
+            "CALORIES_FLOW: итог по USDA: блюдо=%r, calories=%d, protein=%.2f, carbs=%.2f, fat=%.2f, "
+            "serving_size=%s (OpenRouter оценка: %s)",
             food_name,
             total_calories,
             total_protein,
             total_carbs,
             total_fat,
             serving_size,
+            openrouter_cal,
         )
 
         return FoodAnalysisResult(
