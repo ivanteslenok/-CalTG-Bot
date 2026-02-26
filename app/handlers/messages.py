@@ -64,7 +64,6 @@ async def _save_meal_and_reply(
             carbs=analysis.carbs,
             fat=analysis.fat,
             serving_size=analysis.serving_size,
-            meal_type=analysis.meal_type,
             photo_url=photo_url,
         )
         await MealService.create_meal_log(db, meal_data)

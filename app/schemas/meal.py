@@ -11,7 +11,6 @@ class MealLogBase(BaseModel):
     carbs: Optional[float] = None
     fat: Optional[float] = None
     serving_size: Optional[float] = None
-    meal_type: Optional[str] = None
     photo_url: Optional[str] = None
 
 

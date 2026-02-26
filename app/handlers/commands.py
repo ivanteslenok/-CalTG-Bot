@@ -136,8 +136,6 @@ async def today_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         summary = f"🍽️ Ваш рацион за сегодня ({total_calories} ккал):\n\n"
         for meal in meals:
             summary += f"• {meal.food_name} - {meal.calories} ккал"
-            if meal.meal_type:
-                summary += f" ({meal.meal_type})"
             summary += "\n"
         
         # Add goal information
@@ -200,10 +198,7 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             daily_total = sum(meal.calories for meal in day_meals)
             summary += f"{date_str} ({daily_total} ккал):\n"
             for meal in day_meals:
-                summary += f"  • {meal.food_name} - {meal.calories} ккал"
-                if meal.meal_type:
-                    summary += f" ({meal.meal_type})"
-                summary += "\n"
+                summary += f"  • {meal.food_name} - {meal.calories} ккал\n"
             summary += "\n"
         
         await update.message.reply_text(summary[:4000])  # Limit message length

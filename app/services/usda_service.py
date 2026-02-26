@@ -1,7 +1,8 @@
 """
 Клиент USDA FoodData Central API для поиска продуктов и получения нутриентов.
-Используется как fallback при определении калорийности по текстовому описанию.
+Используется для расчёта калорий по ингредиентам (названия от OpenRouter) и как fallback по тексту.
 """
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -157,11 +158,52 @@ class USDAClient:
 
         return result
 
+    def get_nutrients_per_100g(self, food_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Возвращает нутриенты из ответа USDA (калории, БЖУ).
+        Для SR Legacy / Foundation данные в API уже на 100 г.
+        """
+        return self.parse_nutrition_info(food_data)
+
+    async def search_with_fallback(self, search_names: List[str]) -> Optional[Dict[str, Any]]:
+        """
+        Параллельный поиск по списку названий. Возвращает нутриенты на 100 г для первого
+        найденного продукта (первый непустой результат поиска по порядку названий).
+        Возвращает None, если ни один поиск не дал продукта с калориями.
+        """
+        if not self.api_key or not search_names:
+            return None
+        names = [n.strip() for n in search_names if isinstance(n, str) and (n or "").strip()]
+        if not names:
+            return None
+
+        async def search_one(query: str) -> List[Dict[str, Any]]:
+            return await self.search_foods(query, page_size=5)
+
+        results: List[List[Dict[str, Any]]] = await asyncio.gather(
+            *[search_one(name) for name in names]
+        )
+        for food_list in results:
+            if not food_list:
+                continue
+            first = food_list[0]
+            fdc_id = first.get("fdcId")
+            if fdc_id is None:
+                continue
+            details = await self.get_food_details(int(fdc_id))
+            if not details:
+                continue
+            nutrition = self.get_nutrients_per_100g(details)
+            if nutrition.get("calories", 0) > 0 or any(
+                nutrition.get(k) for k in ("protein", "carbs", "fat")
+            ):
+                return nutrition
+        return None
+
     async def analyze_food_text(self, query: str) -> Optional[Dict[str, Any]]:
         """
         Поиск по запросу, взятие первого результата и разбор нутриентов.
-        Возвращает словарь в формате, совместимом с FoodAnalysisResult.from_raw:
-        food_name, calories, protein, carbs, fat, serving_size, meal_type.
+        Возвращает словарь в формате, совместимом с FoodAnalysisResult.from_raw.
         """
         foods = await self.search_foods(query, page_size=5)
         if not foods:
@@ -182,5 +224,4 @@ class USDAClient:
             "carbs": nutrition.get("carbs") or None,
             "fat": nutrition.get("fat") or None,
             "serving_size": None,
-            "meal_type": "snack",
         }

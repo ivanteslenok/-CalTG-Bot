@@ -14,7 +14,6 @@ class MealLog(Base):
     carbs = Column(Float, nullable=True)  # in grams
     fat = Column(Float, nullable=True)  # in grams
     serving_size = Column(Float, nullable=True)  # in grams
-    meal_type = Column(String(20), nullable=True)  # breakfast, lunch, dinner, snack
     photo_url = Column(String, nullable=True)  # URL of uploaded photo
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())

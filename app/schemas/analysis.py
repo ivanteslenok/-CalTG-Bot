@@ -1,6 +1,6 @@
 """Схема результата анализа блюда (OpenRouter или USDA)."""
 from pydantic import BaseModel, Field
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 
 
 def _clamp_float(value: Any) -> Optional[float]:
@@ -23,16 +23,25 @@ def _clamp_int(value: Any) -> int:
         return 0
 
 
+class OpenRouterIngredient(BaseModel):
+    """Один ингредиент из ответа OpenRouter для поиска в USDA."""
+
+    weight_grams: float = Field(..., gt=0, description="Вес ингредиента, г")
+    search_names_en: List[str] = Field(..., min_length=1, description="Варианты названий на английском для поиска")
+
+    class Config:
+        extra = "ignore"
+
+
 class FoodAnalysisResult(BaseModel):
     """Унифицированный результат определения калорийности по описанию или фото."""
 
-    food_name: str = Field(..., description="Название блюда/продукта")
+    food_name: str = Field(..., description="Название блюда/продукта (для отображения)")
     calories: int = Field(..., ge=0, description="Калории (ккал)")
     protein: Optional[float] = Field(None, ge=0, description="Белки, г")
     carbs: Optional[float] = Field(None, ge=0, description="Углеводы, г")
     fat: Optional[float] = Field(None, ge=0, description="Жиры, г")
     serving_size: Optional[float] = Field(None, ge=0, description="Размер порции, г")
-    meal_type: Optional[str] = Field("snack", description="Тип приёма пищи")
 
     class Config:
         extra = "ignore"
@@ -51,13 +60,6 @@ class FoodAnalysisResult(BaseModel):
         carbs = _clamp_float(raw.get("carbs"))
         fat = _clamp_float(raw.get("fat"))
         serving_size = _clamp_float(raw.get("serving_size"))
-        meal_type = raw.get("meal_type")
-        if isinstance(meal_type, str) and meal_type.strip():
-            meal_type = meal_type.strip().lower()
-            if meal_type not in ("breakfast", "lunch", "dinner", "snack"):
-                meal_type = "snack"
-        else:
-            meal_type = "snack"
         return cls(
             food_name=name.strip(),
             calories=calories,
@@ -65,5 +67,4 @@ class FoodAnalysisResult(BaseModel):
             carbs=carbs,
             fat=fat,
             serving_size=serving_size,
-            meal_type=meal_type,
         )
