@@ -1,7 +1,6 @@
 """
-Оркестрация определения калорийности: OpenRouter (состав + fallback калории), USDA по ингредиентам.
-Успешный расчёт через USDA только если все ингредиенты найдены; иначе используются данные OpenRouter.
-Подробные логи помогают отследить весь путь вычисления.
+Оркестрация определения калорийности: единственный источник — OpenRouter (калории, БЖУ из ответа модели).
+Расчёт через USDA отключён (код сохранён для возможного включения позже).
 """
 import asyncio
 import json
@@ -79,8 +78,7 @@ def _scale_nutrients(nutrition_per_100g: Dict[str, Any], weight_grams: float) ->
 class FoodAnalysisService:
     """
     Единая точка для определения калорийности по описанию или фото.
-    OpenRouter возвращает название блюда (RU), fallback калории/БЖУ и ингредиенты с граммовкой и EN-названиями.
-    При успешном получении данных по всем ингредиентам из USDA — считаем калории по граммовке; иначе — fallback OpenRouter.
+    Калории и БЖУ берутся только из ответа OpenRouter. Расчёт через USDA отключён.
     """
 
     def __init__(
@@ -193,8 +191,7 @@ class FoodAnalysisService:
 
     async def analyze_by_image(self, image_url: str) -> Optional[FoodAnalysisResult]:
         """
-        Анализ по фото. OpenRouter возвращает структуру с ингредиентами;
-        при возможности калории считаются по USDA, иначе — fallback OpenRouter.
+        Анализ по фото. Калории считаются только по ответу OpenRouter (USDA расчёт отключён).
         """
         logger.info("CALORIES_FLOW: старт анализа по фото. image_url=%s", image_url)
         raw = await self._nlp.analyze_food_image(image_url)
@@ -202,35 +199,17 @@ class FoodAnalysisService:
             logger.warning("CALORIES_FLOW: OpenRouter не вернул данных для фото")
             return None
         logger.debug("CALORIES_FLOW: сырые данные OpenRouter по фото:\n%s", _pretty(raw))
-        ingredients = _parse_ingredients(raw)
-        if ingredients:
-            logger.info(
-                "CALORIES_FLOW: найдено %d ингредиентов для фото, пытаемся посчитать через USDA",
-                len(ingredients),
-            )
-            result = await self._try_usda_calculation(raw, ingredients)
-            if result is not None:
-                logger.info("CALORIES_FLOW: итог по фото — использован USDA (все ингредиенты найдены)")
-                return result
-            logger.info(
-                "CALORIES_FLOW: расчёт по USDA для фото не удался, используем fallback OpenRouter"
-            )
-        else:
-            logger.info(
-                "CALORIES_FLOW: OpenRouter по фото не вернул валидных ингредиентов, используем fallback"
-            )
-        fallback = FoodAnalysisResult.from_raw(raw, default_name="Блюдо по фото")
+        result = FoodAnalysisResult.from_raw(raw, default_name="Блюдо по фото")
         logger.info(
-            "CALORIES_FLOW: fallback OpenRouter по фото: блюдо=%r, calories=%d",
-            fallback.food_name,
-            fallback.calories,
+            "CALORIES_FLOW: итог по фото (OpenRouter): блюдо=%r, calories=%d",
+            result.food_name,
+            result.calories,
         )
-        return fallback
+        return result
 
     async def analyze_by_text(self, description: str) -> Optional[FoodAnalysisResult]:
         """
-        Анализ по текстовому описанию. Аналогично фото: при успехе USDA — расчёт по ингредиентам,
-        иначе — fallback OpenRouter.
+        Анализ по текстовому описанию. Калории считаются только по ответу OpenRouter (USDA расчёт отключён).
         """
         logger.info(
             "CALORIES_FLOW: старт анализа по тексту. description_preview=%r",
@@ -241,27 +220,10 @@ class FoodAnalysisService:
             logger.warning("CALORIES_FLOW: OpenRouter не вернул данных для текстового описания")
             return None
         logger.debug("CALORIES_FLOW: сырые данные OpenRouter по тексту:\n%s", _pretty(raw))
-        ingredients = _parse_ingredients(raw)
-        if ingredients:
-            logger.info(
-                "CALORIES_FLOW: найдено %d ингредиентов для текста, пытаемся посчитать через USDA",
-                len(ingredients),
-            )
-            result = await self._try_usda_calculation(raw, ingredients)
-            if result is not None:
-                logger.info("CALORIES_FLOW: итог по тексту — использован USDA (все ингредиенты найдены)")
-                return result
-            logger.info(
-                "CALORIES_FLOW: расчёт по USDA для текста не удался, используем fallback OpenRouter"
-            )
-        else:
-            logger.info(
-                "CALORIES_FLOW: OpenRouter по тексту не вернул валидных ингредиентов, используем fallback"
-            )
-        fallback = FoodAnalysisResult.from_raw(raw, default_name=description.strip() or "Блюдо")
+        result = FoodAnalysisResult.from_raw(raw, default_name=description.strip() or "Блюдо")
         logger.info(
-            "CALORIES_FLOW: fallback OpenRouter по тексту: блюдо=%r, calories=%d",
-            fallback.food_name,
-            fallback.calories,
+            "CALORIES_FLOW: итог по тексту (OpenRouter): блюдо=%r, calories=%d",
+            result.food_name,
+            result.calories,
         )
-        return fallback
+        return result

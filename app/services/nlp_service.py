@@ -37,10 +37,7 @@ def _parse_json_content(content: str) -> Optional[Dict[str, Any]]:
 
 
 def _validate_analysis_dict(data: Optional[Dict[str, Any]]) -> bool:
-    """
-    Проверяет минимально необходимые поля ответа OpenRouter: food_name (RU), calories.
-    Наличие и валидность ingredients проверяется в FoodAnalysisService при попытке USDA.
-    """
+    """Проверяет минимально необходимые поля ответа OpenRouter: food_name (RU), calories."""
     if not data or not isinstance(data, dict):
         return False
     if not isinstance(data.get("food_name"), str) or not (data.get("food_name") or "").strip():
@@ -87,16 +84,9 @@ class NLPService:
 
         prompt = (
             "You are a nutrition assistant. Analyze the food in this image and reply with exactly one JSON object (no array, no markdown, no extra text).\n\n"
-            'Required keys:\n'
-            '- "food_name" (string, dish name for display in Russian), "calories" (integer, total kcal estimate).\n'
-            '- "protein", "carbs", "fat", "serving_size" (numbers, total grams).\n\n'
-            '- "ingredients" (array): list of ingredients for lookup in a nutrition database. Each item must have:\n'
-            '  - "weight_grams" (number): weight of this ingredient in grams.\n'
-            '  - "search_names_en" (array of 3 strings, or at least 1): English names to search for this ingredient (e.g. ["chicken breast", "chicken fillet", "grilled chicken"]).\n\n'
-            'Example (output only this JSON, nothing else):\n'
-            '{"food_name": "Салат Цезарь с курицей", "calories": 450, "protein": 35, "carbs": 15, "fat": 28, "serving_size": 350, '
-            '"ingredients": [{"weight_grams": 120, "search_names_en": ["chicken breast", "chicken fillet", "grilled chicken"]}, '
-            '{"weight_grams": 30, "search_names_en": ["caesar dressing", "salad dressing creamy", "parmesan dressing"]}]}'
+            'Required keys: "food_name" (string, dish name in Russian), "calories" (integer, total kcal), '
+            '"protein", "carbs", "fat", "serving_size" (numbers, grams).\n\n'
+            'Example: {"food_name": "Салат Цезарь с курицей", "calories": 450, "protein": 35, "carbs": 15, "fat": 28, "serving_size": 350}'
         )
 
         payload = {
@@ -179,16 +169,9 @@ class NLPService:
         prompt = (
             "You are a nutrition assistant. From the food description below, estimate nutrition and reply with exactly one JSON object (no array, no markdown, no extra text).\n\n"
             f'Food description: "{description}"\n\n'
-            'Required keys:\n'
-            '- "food_name" (string, dish name for display in Russian), "calories" (integer, total kcal estimate).\n'
-            '- "protein", "carbs", "fat", "serving_size" (numbers, total grams).\n\n'
-            '- "ingredients" (array): list of ingredients for lookup in a nutrition database. Each item must have:\n'
-            '  - "weight_grams" (number): weight of this ingredient in grams.\n'
-            '  - "search_names_en" (array of 3 strings, or at least 1): English names to search for this ingredient (e.g. ["chicken breast", "chicken fillet", "grilled chicken"]).\n\n'
-            'Example (output only this JSON, nothing else):\n'
-            '{"food_name": "Овсянка с бананом", "calories": 250, "protein": 8, "carbs": 45, "fat": 5, "serving_size": 350, '
-            '"ingredients": [{"weight_grams": 200, "search_names_en": ["oatmeal", "rolled oats", "oats cooked"]}, '
-            '{"weight_grams": 100, "search_names_en": ["banana", "banana raw", "banana fresh"]}]}'
+            'Required keys: "food_name" (string, dish name in Russian), "calories" (integer, total kcal), '
+            '"protein", "carbs", "fat", "serving_size" (numbers, grams).\n\n'
+            'Example: {"food_name": "Овсянка с бананом", "calories": 250, "protein": 8, "carbs": 45, "fat": 5, "serving_size": 350}'
         )
 
         payload = {

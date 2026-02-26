@@ -1,6 +1,6 @@
 """
 Обработчики сообщений: фото и текст для добавления приёмов пищи.
-Определение калорийности через FoodAnalysisService (OpenRouter + USDA fallback).
+Определение калорийности через FoodAnalysisService (OpenRouter).
 """
 import logging
 from typing import Optional
